@@ -4,16 +4,60 @@ import requests
 
 TF_MODEL_URL = os.getenv("TF_MODEL_URL")
 PT_MODEL_URL = os.getenv("PT_MODEL_URL")
+TF_MODEL_GOOGLE_DRIVE_ID = os.getenv("TF_MODEL_GOOGLE_DRIVE_ID")
+PT_MODEL_GOOGLE_DRIVE_ID = os.getenv("PT_MODEL_GOOGLE_DRIVE_ID")
 
-def download_file(url, filepath):
-    """Download a file from a URL if not already present."""
-    if not url:
-        print(f"URL not provided for {filepath}")
+def download_file_from_google_drive(file_id, filepath):
+    """Download file from Google Drive"""
+    if not file_id:
+        return False
+    try:
+        # Handle both full URLs and file IDs
+        if "drive.google.com" in file_id:
+            # Extract file ID from URL - handle both /file/d/ and /open?id= formats
+            import re
+            match = re.search(r'/file/d/([a-zA-Z0-9_-]+)', file_id)
+            if not match:
+                match = re.search(r'[?&]id=([a-zA-Z0-9_-]+)', file_id)
+            if match:
+                file_id = match.group(1)
+            else:
+                print(f"❌ Could not extract file ID from URL: {file_id}")
+                return False
+
+        url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        print(f"Downloading model from Google Drive (ID: {file_id}): {filepath}")
+
+        response = requests.get(url, stream=True, timeout=300)
+        response.raise_for_status()
+
+        with open(filepath, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+
+        print(f"Downloaded successfully: {filepath}")
+        return True
+    except Exception as e:
+        print(f"❌ Failed to download {filepath} from Google Drive: {e}")
+        return False
+
+def download_file(url, filepath, google_drive_id=None):
+    """Download a file from a URL or Google Drive if not already present."""
+    if os.path.exists(filepath):
+        print(f"✅ Model already exists: {filepath}")
         return
-    if not os.path.exists(filepath):
+
+    # Try Google Drive first if ID provided
+    if google_drive_id:
+        if download_file_from_google_drive(google_drive_id, filepath):
+            return
+
+    # Try direct URL if provided
+    if url:
         print(f"Downloading model: {filepath}")
         try:
-            response = requests.get(url, stream=True)
+            response = requests.get(url, stream=True, timeout=300)
             response.raise_for_status()
             with open(filepath, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
@@ -23,18 +67,25 @@ def download_file(url, filepath):
         except Exception as e:
             print(f"❌ Failed to download {filepath}: {e}")
     else:
-        print(f"✅ Model already exists: {filepath}")
+        print(f"URL not provided for {filepath}")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Model file paths
-TF_MODEL_FILE = BASE_DIR / "CropLeaf-C1.h5"
-PT_MODEL_FILE = BASE_DIR / "plant_disease_model_1_latest.pt"
+# Model file paths - use same directory as model.py (backend/app/ml_models)
+APP_DIR = BASE_DIR / "app"
+ML_MODELS_DIR = APP_DIR / "ml_models"
+
+# Get model filenames from environment variables with defaults
+TF_MODEL_FILENAME = os.getenv('TF_MODEL_FILENAME', 'CropLeaf-C1.h5')
+PT_MODEL_FILENAME = os.getenv('PT_MODEL_FILENAME', 'plant_disease_model_1_latest.pt')
+
+TF_MODEL_FILE = ML_MODELS_DIR / TF_MODEL_FILENAME
+PT_MODEL_FILE = ML_MODELS_DIR / PT_MODEL_FILENAME
 
 # Download models at startup
-download_file(TF_MODEL_URL, TF_MODEL_FILE)
-download_file(PT_MODEL_URL, PT_MODEL_FILE)
+download_file(TF_MODEL_URL, TF_MODEL_FILE, TF_MODEL_GOOGLE_DRIVE_ID)
+download_file(PT_MODEL_URL, PT_MODEL_FILE, PT_MODEL_GOOGLE_DRIVE_ID)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/

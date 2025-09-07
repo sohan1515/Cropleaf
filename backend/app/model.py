@@ -92,11 +92,15 @@ class ModelWrapper:
         pt_model_url = os.getenv('PT_MODEL_URL')
         pt_model_drive_id = os.getenv('PT_MODEL_GOOGLE_DRIVE_ID')
 
+        # Get model filenames from environment variables with defaults
+        tf_filename = os.getenv('TF_MODEL_FILENAME', 'CropLeaf-C1.h5')
+        pt_filename = os.getenv('PT_MODEL_FILENAME', 'plant_disease_model_1_latest.pt')
+
         # Try to load TensorFlow/Keras model first
-        tf_model_path = os.path.join(self.models_dir, "CropLeaf-C1.h5")
+        tf_model_path = os.path.join(self.models_dir, tf_filename)
         if not os.path.exists(tf_model_path):
             print("TensorFlow model not found locally, attempting to download...")
-            if not self.ensure_model_available("CropLeaf-C1.h5", tf_model_url, tf_model_drive_id):
+            if not self.ensure_model_available(tf_filename, tf_model_url, tf_model_drive_id):
                 print("Failed to download TensorFlow model")
 
         if os.path.exists(tf_model_path):
@@ -104,7 +108,7 @@ class ModelWrapper:
                 self.tf_model = tf.keras.models.load_model(tf_model_path)
                 self.tf_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
                 self.model_type = 'tensorflow'
-                print("TensorFlow/Keras Model (CropLeaf-C1.h5) loaded successfully")
+                print(f"TensorFlow/Keras Model ({tf_filename}) loaded successfully")
             except Exception as e:
                 print(f"Error loading TensorFlow model: {str(e)}")
                 self.tf_model = None
@@ -113,10 +117,10 @@ class ModelWrapper:
             self.tf_model = None
 
         # Try to load PyTorch model
-        pt_model_path = os.path.join(self.models_dir, "plant_disease_model_1_latest.pt")
+        pt_model_path = os.path.join(self.models_dir, pt_filename)
         if not os.path.exists(pt_model_path):
             print("PyTorch model not found locally, attempting to download...")
-            if not self.ensure_model_available("plant_disease_model_1_latest.pt", pt_model_url, pt_model_drive_id):
+            if not self.ensure_model_available(pt_filename, pt_model_url, pt_model_drive_id):
                 print("Failed to download PyTorch model")
 
         if os.path.exists(pt_model_path):
@@ -130,7 +134,7 @@ class ModelWrapper:
 
                 if self.tf_model is None:
                     self.model_type = 'pytorch'
-                print("PyTorch Model (plant_disease_model_1_latest.pt) loaded successfully")
+                print(f"PyTorch Model ({pt_filename}) loaded successfully")
             except Exception as e:
                 print(f"Error loading PyTorch model: {str(e)}")
                 self.pt_model = None
@@ -142,8 +146,10 @@ class ModelWrapper:
             print("No models could be loaded. Configure model download URLs using environment variables:")
             print("  TF_MODEL_URL - Direct download URL for TensorFlow model")
             print("  TF_MODEL_GOOGLE_DRIVE_ID - Google Drive file ID for TensorFlow model")
+            print("  TF_MODEL_FILENAME - Filename for TensorFlow model (default: CropLeaf-C1.h5)")
             print("  PT_MODEL_URL - Direct download URL for PyTorch model")
             print("  PT_MODEL_GOOGLE_DRIVE_ID - Google Drive file ID for PyTorch model")
+            print("  PT_MODEL_FILENAME - Filename for PyTorch model (default: plant_disease_model_1_latest.pt)")
             self.model_type = None
 
     def predict(self, image_array):

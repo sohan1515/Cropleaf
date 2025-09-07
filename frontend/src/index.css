@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Google Translate Styles */
+.goog-te-banner-frame {
+  display: none !important;
+}
+
+.goog-te-menu-value {
+  display: none !important;
+}
+
+.goog-te-gadget-simple {
+  background-color: transparent !important;
+  border: none !important;
+}
+
+.goog-te-gadget-simple .goog-te-menu-value span {
+  color: transparent !important;
+}
+
+.goog-te-gadget-simple .goog-te-menu-value span:before {
+  content: "" !important;
+}
+
+.goog-te-combo {
+  display: none !important;
+}
+
+body {
+  top: 0 !important;
+}
+
+/* Ensure translated text maintains styling */
+.translated-ltr,
+.translated-rtl {
+  font-family: inherit !important;
+}

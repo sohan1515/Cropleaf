@@ -1,0 +1,16 @@
+venv
+db.sqlite3
+wireframe.html
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+# ML model files are downloaded at runtime, not stored in repo
+ml_models/*.h5
+ml_models/*.pt

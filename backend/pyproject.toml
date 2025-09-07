@@ -1,0 +1,11 @@
+[project]
+name = "CropLeaf"
+version = "0.1.0"
+description = "Crop Disease Prediction - A Django Application."
+
+readme = "README.md"
+requires-python = ">=3.11"
+
+[project.dependencies]
+dependencies = "requirements.txt"
+authors = ["Yash Chavan <chavanyash127@gmail.com>"]

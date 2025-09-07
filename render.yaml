@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: cropleaf-backend
+    runtime: python3
+    buildCommand: bash build.sh
+    startCommand: gunicorn backend.CropLeaf.wsgi --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DJANGO_SETTINGS_MODULE
+        value: CropLeaf.settings
+      - key: DEBUG
+        value: False
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        fromService:
+          type: web
+          name: cropleaf-backend
+          property: host
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cropleaf-db
+          property: connectionString
+      - key: TF_MODEL_GOOGLE_DRIVE_ID
+        value: 1BLBD5dwXpFswlxL4Mh3K4MJCaY_QfJSL
+      - key: PT_MODEL_GOOGLE_DRIVE_ID
+        value: 1WX2FF5QrGmbAPXouOiHEsRF68cLXjUcC
+
+  - type: pserv
+    name: cropleaf-db
+    runtime: postgresql
+    ipAllowList: []  # Only accessible by other services in this project
+
+databases:
+  - name: cropleaf-db
+    databaseName: cropleaf
+    user: cropleaf_user

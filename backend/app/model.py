@@ -197,7 +197,8 @@ class ModelWrapper:
         pt_loaded = self.pt_model is not None
         return tf_loaded or pt_loaded
 
-    # Create global model instance
-    model_wrapper = ModelWrapper()
-    model = model_wrapper  # For backward compatibility
+
+# Create global model instance
+model_wrapper = ModelWrapper()
+model = model_wrapper  # For backward compatibility
 

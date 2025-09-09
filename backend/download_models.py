@@ -22,6 +22,23 @@ import sys
 import requests
 from pathlib import Path
 
+# Load environment variables from .env file
+def load_env_file():
+    env_path = Path(__file__).parent / ".env"
+    if env_path.exists():
+        with open(env_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    if '=' in line:
+                        key, value = line.split('=', 1)
+                        os.environ[key.strip()] = value.strip()
+        print(f"Loaded environment variables from {env_path}")
+    else:
+        print("No .env file found")
+
+load_env_file()
+
 class ModelDownloader:
     def __init__(self):
         self.models_dir = Path(__file__).parent / "app" / "ml_models"
@@ -42,11 +59,11 @@ class ModelDownloader:
                     if chunk:
                         f.write(chunk)
 
-            print(f"✓ Successfully downloaded {filename}")
+            print(f"Successfully downloaded {filename}")
             return True
 
         except Exception as e:
-            print(f"✗ Failed to download {filename} from Google Drive: {str(e)}")
+            print(f"Failed to download {filename} from Google Drive: {str(e)}")
             return False
 
     def download_from_url(self, url, filename):
@@ -63,16 +80,16 @@ class ModelDownloader:
                     if chunk:
                         f.write(chunk)
 
-            print(f"✓ Successfully downloaded {filename}")
+            print(f"Successfully downloaded {filename}")
             return True
 
         except Exception as e:
-            print(f"✗ Failed to download {filename} from URL: {str(e)}")
+            print(f"Failed to download {filename} from URL: {str(e)}")
             return False
 
     def download_models(self):
         """Download all configured models"""
-        print("🚀 Starting model download process...")
+        print("Starting model download process...")
         print(f"Models will be saved to: {self.models_dir}")
 
         # Get model filenames from environment variables with defaults
@@ -89,7 +106,7 @@ class ModelDownloader:
         elif tf_model_url:
             tf_downloaded = self.download_from_url(tf_model_url, tf_filename)
         else:
-            print("⚠️  No TensorFlow model download configuration found")
+            print("WARNING: No TensorFlow model download configuration found")
 
         # PyTorch model
         pt_downloaded = False
@@ -101,18 +118,18 @@ class ModelDownloader:
         elif pt_model_url:
             pt_downloaded = self.download_from_url(pt_model_url, pt_filename)
         else:
-            print("⚠️  No PyTorch model download configuration found")
+            print("WARNING: No PyTorch model download configuration found")
 
         # Summary
-        print("\n📋 Download Summary:")
-        print(f"TensorFlow model: {'✓ Downloaded' if tf_downloaded else '✗ Not downloaded'}")
-        print(f"PyTorch model: {'✓ Downloaded' if pt_downloaded else '✗ Not downloaded'}")
+        print("\nDownload Summary:")
+        print(f"TensorFlow model: {'Downloaded' if tf_downloaded else 'Not downloaded'}")
+        print(f"PyTorch model: {'Downloaded' if pt_downloaded else 'Not downloaded'}")
 
         if tf_downloaded or pt_downloaded:
-            print("\n🎉 Model download completed successfully!")
+            print("\nModel download completed successfully!")
             return True
         else:
-            print("\n❌ No models were downloaded. Please configure download URLs.")
+            print("\nNo models were downloaded. Please configure download URLs.")
             return False
 
 def main():
@@ -124,14 +141,14 @@ def main():
     success = downloader.download_models()
 
     if not success:
-        print("\n🔧 To configure model downloads, set these environment variables:")
+        print("\nTo configure model downloads, set these environment variables:")
         print("  TF_MODEL_GOOGLE_DRIVE_ID - Google Drive file ID for TensorFlow model")
         print("  TF_MODEL_URL - Direct download URL for TensorFlow model")
         print("  TF_MODEL_FILENAME - Filename for TensorFlow model (default: CropLeaf-C1.h5)")
         print("  PT_MODEL_GOOGLE_DRIVE_ID - Google Drive file ID for PyTorch model")
         print("  PT_MODEL_URL - Direct download URL for PyTorch model")
         print("  PT_MODEL_FILENAME - Filename for PyTorch model (default: plant_disease_model_1_latest.pt)")
-        print("\n📖 See README.md for detailed setup instructions")
+        print("\nSee README.md for detailed setup instructions")
         sys.exit(1)
 
     sys.exit(0)

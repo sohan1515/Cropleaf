@@ -115,7 +115,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-l8**w9!+h)4(8wdl!w#y)h35kh
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,your-project-name.onrender.com').split(',')
+ALLOWED_HOSTS = ["cropleaf.onrender.com", "localhost", "127.0.0.1"]
 
 # Application definition
 
@@ -261,7 +261,7 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:5174',
     'http://localhost:5175',
     'http://192.168.1.13:5173',
-    'https://your-project-name.onrender.com',
+    'https://cropleaf.onrender.com',
 ]
 
 # CSRF trusted origins for Django 4.0+
@@ -271,7 +271,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5174',
     'http://localhost:5175',
     'http://192.168.1.13:5173',
-    'https://your-project-name.onrender.com',
+    'https://cropleaf.onrender.com',
 ]
 
 CORS_ALLOW_CREDENTIALS = True

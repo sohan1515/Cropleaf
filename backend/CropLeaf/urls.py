@@ -9,5 +9,7 @@ urlpatterns = [
     path('', include(app_urls)),
 ]
 
-if not settings.DEBUG:
+# Static files are handled by WhiteNoise in production
+# Only serve static files in development (DEBUG=True)
+if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

@@ -2,7 +2,29 @@ from django.urls import path
 from django.conf import settings
 from django.conf.urls import handler404
 from django.conf.urls.static import static
-from app.views import login_view , register_view, logout_view ,home , profiledata , crops ,contact_view, uploads, forgot_pass, my_404_page, PredictView, disease_details, translate_text, dashboard_stats, farmer_dashboard, api_login, api_register, marketplace_products, mandi_locations, verify_product_quality, create_product_inquiry, get_weather_data, get_weather_forecast, get_user_notifications, create_notification, update_notification_preferences, get_notification_preferences, health_check
+# Import views for better organization
+from app.views import (
+    # Authentication views
+    login_view, register_view, logout_view, api_login, api_register,
+
+    # Main app views
+    home, crops, uploads, profiledata, contact_view, forgot_pass,
+
+    # API views
+    PredictView, disease_details, translate_text, health_check,
+    dashboard_stats, farmer_dashboard,
+
+    # Marketplace views
+    marketplace_products, mandi_locations, verify_product_quality, create_product_inquiry,
+
+    # Weather and notifications
+    get_weather_data, get_weather_forecast,
+    get_user_notifications, create_notification,
+    update_notification_preferences, get_notification_preferences,
+
+    # Error handling
+    my_404_page
+)
 
 handler404 = my_404_page
 

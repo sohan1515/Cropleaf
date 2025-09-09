@@ -191,7 +191,13 @@ class ModelWrapper:
             # Return dummy predictions
             return np.array([[0.0] * 17])
 
-# Create global model instance
-model_wrapper = ModelWrapper()
-model = model_wrapper  # For backward compatibility
+    def check_models_loaded(self):
+        """Check if models are properly loaded"""
+        tf_loaded = self.tf_model is not None
+        pt_loaded = self.pt_model is not None
+        return tf_loaded or pt_loaded
+
+    # Create global model instance
+    model_wrapper = ModelWrapper()
+    model = model_wrapper  # For backward compatibility
 

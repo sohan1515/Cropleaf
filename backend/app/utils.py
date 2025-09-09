@@ -1,8 +1,8 @@
 import uuid
 import numpy as np
-from PIL import Image 
+from PIL import Image
 from functools import wraps
-from app.model import model
+from app.model import model_wrapper
 from django.shortcuts import redirect
 from django.core.files.storage import default_storage
 
@@ -238,11 +238,11 @@ def process_image(full_path):
     image_array = np.expand_dims(np.array(image_resized), axis=0)
 
     # Check if model is available
-    if model.model_type is None:
+    if model_wrapper.model_type is None:
         return "Model not available. Please check model loading.", [full_path, compressed_path]
 
     try:
-        prediction = model.predict(image_array)
+        prediction = model_wrapper.predict(image_array)
 
         # Handle different output formats
         if isinstance(prediction, np.ndarray):

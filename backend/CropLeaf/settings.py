@@ -2,11 +2,6 @@ import os
 from pathlib import Path
 import requests
 
-TF_MODEL_URL = os.getenv("TF_MODEL_URL")
-PT_MODEL_URL = os.getenv("PT_MODEL_URL")
-TF_MODEL_GOOGLE_DRIVE_ID = os.getenv("TF_MODEL_GOOGLE_DRIVE_ID")
-PT_MODEL_GOOGLE_DRIVE_ID = os.getenv("PT_MODEL_GOOGLE_DRIVE_ID")
-
 def download_file_from_google_drive(file_id, filepath):
     """Download file from Google Drive"""
     if not file_id:
@@ -72,6 +67,31 @@ def download_file(url, filepath, google_drive_id=None):
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    env_path = BASE_DIR / '.env'
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"✅ Loaded environment variables from {env_path}")
+    else:
+        print(f"⚠️  .env file not found at {env_path}")
+except ImportError:
+    print("⚠️  python-dotenv not installed, using system environment variables only")
+
+TF_MODEL_URL = os.getenv("TF_MODEL_URL")
+PT_MODEL_URL = os.getenv("PT_MODEL_URL")
+TF_MODEL_GOOGLE_DRIVE_ID = os.getenv("TF_MODEL_GOOGLE_DRIVE_ID")
+PT_MODEL_GOOGLE_DRIVE_ID = os.getenv("PT_MODEL_GOOGLE_DRIVE_ID")
+
+# Debug: Print environment variables
+print("=== Model Download Configuration ===")
+print(f"TF_MODEL_URL: {TF_MODEL_URL}")
+print(f"PT_MODEL_URL: {PT_MODEL_URL}")
+print(f"TF_MODEL_GOOGLE_DRIVE_ID: {TF_MODEL_GOOGLE_DRIVE_ID}")
+print(f"PT_MODEL_GOOGLE_DRIVE_ID: {PT_MODEL_GOOGLE_DRIVE_ID}")
+print("===================================")
+
 # Model file paths - use same directory as model.py (backend/app/ml_models)
 APP_DIR = BASE_DIR / "app"
 ML_MODELS_DIR = APP_DIR / "ml_models"
@@ -83,9 +103,9 @@ PT_MODEL_FILENAME = os.getenv('PT_MODEL_FILENAME', 'plant_disease_model_1_latest
 TF_MODEL_FILE = ML_MODELS_DIR / TF_MODEL_FILENAME
 PT_MODEL_FILE = ML_MODELS_DIR / PT_MODEL_FILENAME
 
-# Download models at startup
-download_file(TF_MODEL_URL, TF_MODEL_FILE, TF_MODEL_GOOGLE_DRIVE_ID)
-download_file(PT_MODEL_URL, PT_MODEL_FILE, PT_MODEL_GOOGLE_DRIVE_ID)
+# Model download is now handled by the download_models.py script during deployment
+# and by the ModelWrapper class when needed
+# This prevents startup issues if models can't be downloaded immediately
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -95,7 +115,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-l8**w9!+h)4(8wdl!w#y)h35kh
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,cropleaf.onrender.com').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,your-project-name.onrender.com').split(',')
 
 # Application definition
 
@@ -241,6 +261,7 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:5174',
     'http://localhost:5175',
     'http://192.168.1.13:5173',
+    'https://your-project-name.onrender.com',
 ]
 
 # CSRF trusted origins for Django 4.0+
@@ -250,6 +271,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5174',
     'http://localhost:5175',
     'http://192.168.1.13:5173',
+    'https://your-project-name.onrender.com',
 ]
 
 CORS_ALLOW_CREDENTIALS = True

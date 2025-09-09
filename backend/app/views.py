@@ -2177,39 +2177,3 @@ def health_check(request):
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }, status=503)
-<<<<<<< HEAD
-
-@api_view(['GET'])
-def health_check(request):
-    """
-    Health check endpoint for Render monitoring
-    """
-    try:
-        from django.db import connection
-        from app.model import ModelWrapper
-
-        # Check database connection
-        cursor = connection.cursor()
-        cursor.execute("SELECT 1")
-        cursor.fetchone()
-
-        # Check ML model loading
-        model_wrapper = ModelWrapper()
-        models_loaded = model_wrapper.check_models_loaded()
-
-        return Response({
-            'status': 'healthy',
-            'database': 'connected',
-            'ml_models': 'loaded' if models_loaded else 'loading',
-            'timestamp': datetime.now().isoformat(),
-            'version': '1.0.0'
-        })
-
-    except Exception as e:
-        return Response({
-            'status': 'unhealthy',
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        }, status=503)
-=======
->>>>>>> 8260561a942e7dca9091fa4b72e6f3af58e16a2c

@@ -602,6 +602,17 @@ from rest_framework import status
 class PredictView(APIView):
     permission_classes = [AllowAny]
 
+    def options(self, request, *args, **kwargs):
+        """
+        Handle preflight OPTIONS request for CORS
+        """
+        response = Response()
+        response['Access-Control-Allow-Origin'] = 'https://brilliant-flan-b6a0dd.netlify.app'
+        response['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response['Access-Control-Allow-Credentials'] = 'true'
+        return response
+
     def post(self, request):
         if 'image' in request.FILES:
             image_file = request.FILES['image']
@@ -1099,7 +1110,7 @@ class PredictView(APIView):
         # Get the appropriate image for the disease
         disease_image = disease_image_map.get(result, 'Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot.jpeg')
 
-        return Response({
+        response_data = {
             'result': result,
             'treatments': treatments_data,
             'preventions': prevention_data,
@@ -1109,9 +1120,17 @@ class PredictView(APIView):
                 'has_preventions': len(prevention_data) > 0,
                 'image_path': f'/static/images/crops/{disease_image}'
             }
-        })
+        }
 
-        return Response({'error': 'No image provided'}, status=400)
+        response = Response(response_data)
+        response['Access-Control-Allow-Origin'] = 'https://brilliant-flan-b6a0dd.netlify.app'
+        response['Access-Control-Allow-Credentials'] = 'true'
+        return response
+
+        response = Response({'error': 'No image provided'}, status=400)
+        response['Access-Control-Allow-Origin'] = 'https://brilliant-flan-b6a0dd.netlify.app'
+        response['Access-Control-Allow-Credentials'] = 'true'
+        return response
 
 @api_view(['POST'])
 def translate_text(request):
@@ -1658,9 +1677,12 @@ def verify_product_quality(request):
         })
 
     except Exception as e:
-        return Response({
+        response = Response({
             'error': f'Quality verification failed: {str(e)}'
         }, status=500)
+        response['Access-Control-Allow-Origin'] = 'https://brilliant-flan-b6a0dd.netlify.app'
+        response['Access-Control-Allow-Credentials'] = 'true'
+        return response
 
 def get_quality_recommendations(grade, disease):
     """

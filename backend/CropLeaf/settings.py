@@ -17,7 +17,7 @@ def download_file_from_google_drive(file_id, filepath):
             if match:
                 file_id = match.group(1)
             else:
-                print(f"❌ Could not extract file ID from URL: {file_id}")
+                print(f"ERROR: Could not extract file ID from URL: {file_id}")
                 return False
 
         url = f"https://drive.google.com/uc?export=download&id={file_id}"
@@ -34,13 +34,13 @@ def download_file_from_google_drive(file_id, filepath):
         print(f"Downloaded successfully: {filepath}")
         return True
     except Exception as e:
-        print(f"❌ Failed to download {filepath} from Google Drive: {e}")
+        print(f"ERROR: Failed to download {filepath} from Google Drive: {e}")
         return False
 
 def download_file(url, filepath, google_drive_id=None):
     """Download a file from a URL or Google Drive if not already present."""
     if os.path.exists(filepath):
-        print(f"✅ Model already exists: {filepath}")
+        print(f"SUCCESS: Model already exists: {filepath}")
         return
 
     # Try Google Drive first if ID provided
@@ -60,7 +60,7 @@ def download_file(url, filepath, google_drive_id=None):
                         f.write(chunk)
             print(f"Downloaded successfully: {filepath}")
         except Exception as e:
-            print(f"❌ Failed to download {filepath}: {e}")
+            print(f"ERROR: Failed to download {filepath}: {e}")
     else:
         print(f"URL not provided for {filepath}")
 
@@ -73,11 +73,11 @@ try:
     env_path = BASE_DIR / '.env'
     if env_path.exists():
         load_dotenv(env_path)
-        print(f"✅ Loaded environment variables from {env_path}")
+        print(f"SUCCESS: Loaded environment variables from {env_path}")
     else:
-        print(f"⚠️  .env file not found at {env_path}")
+        print(f"WARNING: .env file not found at {env_path}")
 except ImportError:
-    print("⚠️  python-dotenv not installed, using system environment variables only")
+    print("WARNING: python-dotenv not installed, using system environment variables only")
 
 TF_MODEL_URL = os.getenv("TF_MODEL_URL")
 PT_MODEL_URL = os.getenv("PT_MODEL_URL")
@@ -264,6 +264,9 @@ CORS_ALLOWED_ORIGINS = [
     'https://cropleaf.onrender.com',
     'https://brilliant-flan-b6a0dd.netlify.app',
 ]
+
+# Allow all origins for testing (remove in production)
+CORS_ALLOW_ALL_ORIGINS = True
 
 # CSRF trusted origins for Django 4.0+
 CSRF_TRUSTED_ORIGINS = [

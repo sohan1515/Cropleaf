@@ -606,12 +606,7 @@ class PredictView(APIView):
         """
         Handle preflight OPTIONS request for CORS
         """
-        response = Response()
-        response['Access-Control-Allow-Origin'] = 'https://brilliant-flan-b6a0dd.netlify.app'
-        response['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-        response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-        response['Access-Control-Allow-Credentials'] = 'true'
-        return response
+        return Response()
 
     def post(self, request):
         if 'image' in request.FILES:
@@ -1122,15 +1117,9 @@ class PredictView(APIView):
             }
         }
 
-        response = Response(response_data)
-        response['Access-Control-Allow-Origin'] = 'https://brilliant-flan-b6a0dd.netlify.app'
-        response['Access-Control-Allow-Credentials'] = 'true'
-        return response
+        return Response(response_data)
 
-        response = Response({'error': 'No image provided'}, status=400)
-        response['Access-Control-Allow-Origin'] = 'https://brilliant-flan-b6a0dd.netlify.app'
-        response['Access-Control-Allow-Credentials'] = 'true'
-        return response
+        return Response({'error': 'No image provided'}, status=400)
 
 @api_view(['POST'])
 def translate_text(request):
@@ -1677,12 +1666,9 @@ def verify_product_quality(request):
         })
 
     except Exception as e:
-        response = Response({
+        return Response({
             'error': f'Quality verification failed: {str(e)}'
         }, status=500)
-        response['Access-Control-Allow-Origin'] = 'https://brilliant-flan-b6a0dd.netlify.app'
-        response['Access-Control-Allow-Credentials'] = 'true'
-        return response
 
 def get_quality_recommendations(grade, disease):
     """

@@ -1,2 +1,2 @@
-release: python backend/download_models.py
+release: python backend/manage.py migrate --noinput && python backend/download_models.py || echo "Model download failed, continuing..."
 web: gunicorn backend.CropLeaf.wsgi --bind 0.0.0.0:$PORT --log-file -

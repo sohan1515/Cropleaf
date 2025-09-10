@@ -141,7 +141,8 @@ def main():
     success = downloader.download_models()
 
     if not success:
-        print("\nTo configure model downloads, set these environment variables:")
+        print("\nNo models were downloaded. This is OK - the application will work without ML models.")
+        print("To configure model downloads later, set these environment variables:")
         print("  TF_MODEL_GOOGLE_DRIVE_ID - Google Drive file ID for TensorFlow model")
         print("  TF_MODEL_URL - Direct download URL for TensorFlow model")
         print("  TF_MODEL_FILENAME - Filename for TensorFlow model (default: CropLeaf-C1.h5)")
@@ -149,8 +150,9 @@ def main():
         print("  PT_MODEL_URL - Direct download URL for PyTorch model")
         print("  PT_MODEL_FILENAME - Filename for PyTorch model (default: plant_disease_model_1_latest.pt)")
         print("\nSee README.md for detailed setup instructions")
-        sys.exit(1)
+        print("Application will continue without ML models.")
 
+    print("Model download process completed.")
     sys.exit(0)
 
 if __name__ == "__main__":

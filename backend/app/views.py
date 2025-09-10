@@ -620,520 +620,172 @@ class PredictView(APIView):
         """
         Handle preflight OPTIONS request for CORS
         """
-        return Response()
+        response = Response()
+        response['Access-Control-Allow-Origin'] = 'https://brilliant-flan-b6a0dd.netlify.app'
+        response['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response['Access-Control-Allow-Credentials'] = 'true'
+        return response
 
     def post(self, request):
-        if 'image' in request.FILES:
-            image_file = request.FILES['image']
-            original_filename = f"{uuid.uuid4()}.jpg"
-            saved_path = default_storage.save(original_filename, image_file)
-            full_path = default_storage.path(saved_path)
-            result, max_probability, temp_files = process_image(full_path)
+        try:
+            result = None
+            max_probability = 0.0
+            original_filename = ""
 
-            # Clean up temporary files
-            for temp in temp_files:
-                if default_storage.exists(temp):
-                    default_storage.delete(temp)
-            if default_storage.exists(saved_path):
-                default_storage.delete(saved_path)
+            if 'image' in request.FILES:
+                image_file = request.FILES['image']
+                original_filename = f"{uuid.uuid4()}.jpg"
+                saved_path = default_storage.save(original_filename, image_file)
+                full_path = default_storage.path(saved_path)
+                result, max_probability, temp_files = process_image(full_path)
 
-        # Get treatment recommendations for the predicted disease
-        treatments_data = []
-        prevention_data = []
+                # Clean up temporary files
+                for temp in temp_files:
+                    if default_storage.exists(temp):
+                        default_storage.delete(temp)
+                if default_storage.exists(saved_path):
+                    default_storage.delete(saved_path)
+            else:
+                return Response({'error': 'No image provided'}, status=400)
 
-        if result and result != "Provided image doesn't seem to be a crop leaf.":
-            try:
-                from app.models import Disease, Treatment, PreventionStrategy, PredictionHistory
-                disease = Disease.objects.filter(name=result).first()
-                if disease:
-                    # Save prediction history
-                    PredictionHistory.objects.create(
-                        disease=disease,
-                        confidence_score=float(max_probability),
-                        image_path=original_filename,
-                        crop_type=result.split()[0] if result else None  # Extract crop type from result
-                    )
+            # Get treatment recommendations for the predicted disease
+            treatments_data = []
+            prevention_data = []
 
-                    # Get treatments
-                    treatments = Treatment.objects.filter(disease=disease, is_recommended=True).order_by('-effectiveness_rating')[:3]
-                    treatments_data = [{
-                        'name': treatment.name,
-                        'description': treatment.description,
-                        'treatment_type': treatment.treatment_type,
-                        'effectiveness_rating': treatment.effectiveness_rating,
-                        'application_method': treatment.application_method,
-                        'safety_precautions': treatment.safety_precautions,
-                        'cost_estimate': float(treatment.cost_estimate) if treatment.cost_estimate else None,
-                        'duration_days': treatment.duration_days,
-                        'regional_availability': treatment.regional_availability
-                    } for treatment in treatments]
+            if result and result != "Provided image doesn't seem to be a crop leaf.":
+                try:
+                    from app.models import Disease, Treatment, PreventionStrategy, PredictionHistory
+                    disease = Disease.objects.filter(name=result).first()
+                    if disease:
+                        # Save prediction history (only if user is authenticated)
+                        if request.user.is_authenticated:
+                            PredictionHistory.objects.create(
+                                user=request.user,
+                                disease=disease,
+                                confidence_score=float(max_probability),
+                                image_path=original_filename,
+                                crop_type=result.split()[0] if result else None
+                            )
 
-                    # Get prevention strategies
-                    preventions = PreventionStrategy.objects.filter(disease=disease)[:2]
-                    prevention_data = [{
-                        'title': prevention.title,
-                        'description': prevention.description,
-                        'strategy_type': prevention.strategy_type,
-                        'implementation_steps': prevention.implementation_steps,
-                        'expected_benefits': prevention.expected_benefits,
-                        'difficulty_level': prevention.difficulty_level,
-                        'cost_impact': prevention.cost_impact
-                    } for prevention in preventions]
+                        # Get treatments
+                        treatments = Treatment.objects.filter(disease=disease, is_recommended=True).order_by('-effectiveness_rating')[:3]
+                        treatments_data = [{
+                            'name': treatment.name,
+                            'description': treatment.description,
+                            'treatment_type': treatment.treatment_type,
+                            'effectiveness_rating': treatment.effectiveness_rating,
+                            'application_method': treatment.application_method,
+                            'safety_precautions': treatment.safety_precautions,
+                            'cost_estimate': float(treatment.cost_estimate) if treatment.cost_estimate else None,
+                            'duration_days': treatment.duration_days,
+                            'regional_availability': treatment.regional_availability
+                        } for treatment in treatments]
 
-            except Exception as e:
-                print(f"Error fetching treatments: {str(e)}")
+                        # Get prevention strategies
+                        preventions = PreventionStrategy.objects.filter(disease=disease)[:2]
+                        prevention_data = [{
+                            'title': prevention.title,
+                            'description': prevention.description,
+                            'strategy_type': prevention.strategy_type,
+                            'implementation_steps': prevention.implementation_steps,
+                            'expected_benefits': prevention.expected_benefits,
+                            'difficulty_level': prevention.difficulty_level,
+                            'cost_impact': prevention.cost_impact
+                        } for prevention in preventions]
 
-        # Add disease-specific treatment data if no database data exists
-        if not treatments_data:
-            # Create disease-specific treatments based on the prediction result
-            disease_treatments = {
-                'Cercospora Leaf Spot': [
-                    {
-                        'name': 'Azoxystrobin 25% SC',
-                        'description': 'Systemic fungicide effective against Cercospora leaf spot. Provides excellent control of fungal diseases in corn. (Reference: TNAU Crop Protection Guidelines)',
-                        'treatment_type': 'chemical',
-                        'effectiveness_rating': 5,
-                        'application_method': 'Mix 1-2 ml per liter of water. Spray at 15-20 days interval during disease development.',
-                        'safety_precautions': 'Wear protective clothing and avoid inhalation. Do not apply during windy conditions.',
-                        'cost_estimate': 65.00,
-                        'duration_days': 14,
-                        'regional_availability': 'Available in agricultural stores'
-                    },
-                    {
-                        'name': 'Propiconazole 25% EC',
-                        'description': 'Triazole fungicide that provides systemic and protective action against Cercospora leaf spot. (Reference: TNAU Guidelines)',
-                        'treatment_type': 'chemical',
-                        'effectiveness_rating': 4,
-                        'application_method': 'Dilute 1 ml per liter of water and spray thoroughly on both leaf surfaces.',
-                        'safety_precautions': 'Use protective gear and avoid contact with skin and eyes.',
-                        'cost_estimate': 55.00,
-                        'duration_days': 12,
-                        'regional_availability': 'Widely available in agricultural supply stores'
-                    }
-                ],
-                'Corn Common rust': [
-                    {
-                        'name': 'Triadimefon 25% WP',
-                        'description': 'Systemic fungicide specifically effective against rust diseases in corn. Provides long-lasting protection. (Reference: TNAU Crop Protection)',
-                        'treatment_type': 'chemical',
-                        'effectiveness_rating': 5,
-                        'application_method': 'Mix 1 gram per liter of water. Apply at first sign of disease and repeat every 10-14 days.',
-                        'safety_precautions': 'Wear protective clothing and avoid inhalation during application.',
-                        'cost_estimate': 45.00,
-                        'duration_days': 14,
-                        'regional_availability': 'Available in most agricultural stores'
-                    },
-                    {
-                        'name': 'Copper Oxychloride 50% WP',
-                        'description': 'Contact fungicide effective against various fungal diseases including rust. Safe for beneficial insects. (Reference: TNAU Guidelines)',
-                        'treatment_type': 'chemical',
-                        'effectiveness_rating': 3,
-                        'application_method': 'Mix 3 grams per liter of water and spray on affected plants.',
-                        'safety_precautions': 'Avoid mixing with alkaline substances.',
-                        'cost_estimate': 30.00,
-                        'duration_days': 10,
-                        'regional_availability': 'Widely available'
-                    }
-                ],
-                'Corn Northern Leaf Blight': [
-                    {
-                        'name': 'Carbendazim 50% WP',
-                        'description': 'Systemic fungicide highly effective against Northern Leaf Blight in corn. Provides excellent disease control. (Reference: TNAU)',
-                        'treatment_type': 'chemical',
-                        'effectiveness_rating': 5,
-                        'application_method': 'Mix 1 gram per liter of water. Apply at 10-15 days interval during disease development.',
-                        'safety_precautions': 'Wear protective clothing and avoid inhalation.',
-                        'cost_estimate': 40.00,
-                        'duration_days': 12,
-                        'regional_availability': 'Available in agricultural stores'
-                    },
-                    {
-                        'name': 'Hexaconazole 5% EC',
-                        'description': 'Triazole fungicide that provides systemic action against leaf blight diseases. (Reference: TNAU Guidelines)',
-                        'treatment_type': 'chemical',
-                        'effectiveness_rating': 4,
-                        'application_method': 'Dilute 2 ml per liter of water and spray thoroughly.',
-                        'safety_precautions': 'Use protective gear during application.',
-                        'cost_estimate': 50.00,
-                        'duration_days': 14,
-                        'regional_availability': 'Widely available in agricultural supply stores'
-                    }
-                ],
-                'Early Blight in Potatoes': [
-                    {
-                        'name': 'Chlorothalonil 75% WP',
-                        'description': 'Contact fungicide specifically formulated for early blight control in potatoes. Provides excellent protection. (Reference: TNAU)',
-                        'treatment_type': 'chemical',
-                        'effectiveness_rating': 5,
-                        'application_method': 'Mix 2 grams per liter of water. Apply at 7-10 days interval starting from disease appearance.',
-                        'safety_precautions': 'Wear protective clothing and avoid inhalation during spraying.',
-                        'cost_estimate': 35.00,
-                        'duration_days': 10,
-                        'regional_availability': 'Available in agricultural stores'
-                    },
+                except Exception as e:
+                    print(f"Error fetching treatments: {str(e)}")
+
+            # Add disease-specific treatment data if no database data exists
+            if not treatments_data:
+                # Create disease-specific treatments based on the prediction result
+                disease_treatments = {
+                    'Cercospora Leaf Spot': [
+                        {
+                            'name': 'Azoxystrobin 25% SC',
+                            'description': 'Systemic fungicide effective against Cercospora leaf spot. Provides excellent control of fungal diseases in corn.',
+                            'treatment_type': 'chemical',
+                            'effectiveness_rating': 5,
+                            'application_method': 'Mix 1-2 ml per liter of water. Spray at 15-20 days interval during disease development.',
+                            'safety_precautions': 'Wear protective clothing and avoid inhalation.',
+                            'cost_estimate': 65.00,
+                            'duration_days': 14,
+                            'regional_availability': 'Available in agricultural stores'
+                        }
+                    ],
+                    'Corn Common rust': [
+                        {
+                            'name': 'Triadimefon 25% WP',
+                            'description': 'Systemic fungicide specifically effective against rust diseases in corn.',
+                            'treatment_type': 'chemical',
+                            'effectiveness_rating': 5,
+                            'application_method': 'Mix 1 gram per liter of water. Apply at first sign of disease and repeat every 10-14 days.',
+                            'safety_precautions': 'Wear protective clothing and avoid inhalation.',
+                            'cost_estimate': 45.00,
+                            'duration_days': 14,
+                            'regional_availability': 'Available in most agricultural stores'
+                        }
+                    ]
+                }
+
+                treatments_data = disease_treatments.get(result, [
                     {
                         'name': 'Mancozeb 75% WP',
-                        'description': 'Broad-spectrum fungicide effective against early blight and other fungal diseases in potatoes. (Reference: TNAU Guidelines)',
+                        'description': 'Broad-spectrum fungicide effective against various fungal diseases.',
                         'treatment_type': 'chemical',
-                        'effectiveness_rating': 4,
+                        'effectiveness_rating': 5,
                         'application_method': 'Mix 2-3 grams per liter of water. Spray thoroughly on both sides of leaves.',
-                        'safety_precautions': 'Use protective gear and avoid inhalation.',
-                        'cost_estimate': 30.00,
-                        'duration_days': 8,
-                        'regional_availability': 'Widely available'
-                    }
-                ],
-                'Late Blight in Potatoes': [
-                    {
-                        'name': 'Metalaxyl 8% + Mancozeb 64% WP',
-                        'description': 'Combination fungicide specifically designed for late blight control in potatoes. Provides systemic and contact action. (Reference: TNAU)',
-                        'treatment_type': 'chemical',
-                        'effectiveness_rating': 5,
-                        'application_method': 'Mix 2 grams per liter of water. Apply at first sign of disease and repeat every 7-10 days.',
-                        'safety_precautions': 'Wear complete protective clothing during application.',
-                        'cost_estimate': 60.00,
-                        'duration_days': 10,
-                        'regional_availability': 'Available in agricultural stores'
-                    },
-                    {
-                        'name': 'Dimethomorph 50% SC',
-                        'description': 'Systemic fungicide that provides excellent control of late blight in potatoes. (Reference: TNAU Guidelines)',
-                        'treatment_type': 'chemical',
-                        'effectiveness_rating': 4,
-                        'application_method': 'Dilute 1 ml per liter of water and spray thoroughly.',
-                        'safety_precautions': 'Use protective gear and avoid contact with skin.',
-                        'cost_estimate': 75.00,
-                        'duration_days': 12,
-                        'regional_availability': 'Available in specialized agricultural stores'
-                    }
-                ],
-                'Bacterial Spot in Tomatoes': [
-                    {
-                        'name': 'Streptomycin Sulfate 90% SP',
-                        'description': 'Antibiotic effective against bacterial spot in tomatoes. Provides systemic control of bacterial diseases. (Reference: TNAU)',
-                        'treatment_type': 'chemical',
-                        'effectiveness_rating': 4,
-                        'application_method': 'Mix 1 gram per liter of water. Apply at 10-15 days interval during disease development.',
-                        'safety_precautions': 'Wear protective clothing and avoid inhalation.',
-                        'cost_estimate': 55.00,
-                        'duration_days': 14,
-                        'regional_availability': 'Available in agricultural stores'
-                    },
-                    {
-                        'name': 'Copper Hydroxide 77% WP',
-                        'description': 'Copper-based bactericide effective against bacterial spot and other bacterial diseases. (Reference: TNAU Guidelines)',
-                        'treatment_type': 'chemical',
-                        'effectiveness_rating': 3,
-                        'application_method': 'Mix 3 grams per liter of water and spray on affected plants.',
-                        'safety_precautions': 'Avoid mixing with alkaline substances.',
-                        'cost_estimate': 40.00,
+                        'safety_precautions': 'Use protective gear. Avoid inhalation.',
+                        'cost_estimate': 35.00,
                         'duration_days': 10,
                         'regional_availability': 'Widely available'
                     }
-                ],
-                'Tomato Early blight': [
-                    {
-                        'name': 'Tebuconazole 25.9% EC',
-                        'description': 'Triazole fungicide that provides excellent control of early blight in tomatoes. Systemic action. (Reference: TNAU)',
-                        'treatment_type': 'chemical',
-                        'effectiveness_rating': 5,
-                        'application_method': 'Dilute 1 ml per liter of water. Apply at first sign of disease and repeat every 10-14 days.',
-                        'safety_precautions': 'Wear protective clothing during application.',
-                        'cost_estimate': 70.00,
-                        'duration_days': 14,
-                        'regional_availability': 'Available in agricultural stores'
-                    },
-                    {
-                        'name': 'Difenoconazole 25% EC',
-                        'description': 'Triazole fungicide effective against early blight and other fungal diseases in tomatoes. (Reference: TNAU Guidelines)',
-                        'treatment_type': 'chemical',
-                        'effectiveness_rating': 4,
-                        'application_method': 'Mix 1 ml per liter of water and spray thoroughly.',
-                        'safety_precautions': 'Use protective gear and avoid skin contact.',
-                        'cost_estimate': 65.00,
-                        'duration_days': 12,
-                        'regional_availability': 'Widely available in agricultural supply stores'
-                    }
-                ],
-                'Tomato Late blight': [
-                    {
-                        'name': 'Mandipropamid 23.4% SC',
-                        'description': 'Specialized fungicide for late blight control in tomatoes. Provides excellent systemic and translaminar action. (Reference: TNAU)',
-                        'treatment_type': 'chemical',
-                        'effectiveness_rating': 5,
-                        'application_method': 'Dilute 0.5 ml per liter of water. Apply at 7-10 days interval during disease pressure.',
-                        'safety_precautions': 'Wear complete protective clothing.',
-                        'cost_estimate': 85.00,
-                        'duration_days': 10,
-                        'regional_availability': 'Available in agricultural stores'
-                    },
-                    {
-                        'name': 'Famoxadone 16.6% + Cymoxanil 22.1% SC',
-                        'description': 'Combination fungicide providing excellent control of late blight in tomatoes. (Reference: TNAU Guidelines)',
-                        'treatment_type': 'chemical',
-                        'effectiveness_rating': 4,
-                        'application_method': 'Mix 2 ml per liter of water and spray thoroughly.',
-                        'safety_precautions': 'Use protective gear during application.',
-                        'cost_estimate': 80.00,
-                        'duration_days': 12,
-                        'regional_availability': 'Available in specialized agricultural stores'
-                    }
-                ]
+                ])
+
+            # Create disease-to-image mapping
+            disease_image_map = {
+                'Cercospora Leaf Spot': 'Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot.jpeg',
+                'Corn Common rust': 'Corn_(maize)___Common_rust.jpeg',
+                'Corn Northern Leaf Blight': 'Corn_(maize)___Northern_Leaf_Blight.jpeg',
+                'Early Blight in Potatoes': 'Potato___Early_blight.jpeg',
+                'Late Blight in Potatoes': 'Potato___Late_blight.jpeg',
+                'Bacterial Spot in Tomatoes': 'Tomato___Bacterial_spot.jpeg',
+                'Tomato Early blight': 'Tomato___Early_blight.jpeg',
+                'Tomato Late blight': 'Tomato___late_blight.jpeg',
+                'Tomato Leaf Mold': 'Tomato___Leaf_Mold.jpeg',
+                'Tomato Septoria leaf spot': 'Tomato___Septoria_leaf_spot.jpeg',
+                'Tomato Target Spot': 'Tomato___Target_Spot.jpeg',
+                'Tomato mosaic virus': 'Tomato___Tomato_mosaic_virus.jpeg',
+                'Tomato Yellow Leaf Curl Virus': 'Tomato___Tomato_Yellow_Leaf_Curl_Virus.jpeg',
+                'Tomato Spider mites two spotted spider mite': 'Tomato_Spider_mites_two_ spotted_spider_mite.jpeg'
             }
 
-            # Get disease-specific treatments or use general treatments
-            treatments_data = disease_treatments.get(result, [
-                {
-                    'name': 'Chlorpyrifos 20% EC',
-                    'description': 'Broad-spectrum organophosphate insecticide effective against various pests including aphids, mites, and caterpillars. Provides systemic and contact action. (Reference: TNAU Crop Protection Guidelines)',
-                    'treatment_type': 'chemical',
-                    'effectiveness_rating': 4,
-                    'application_method': 'Dilute 2-3 ml per liter of water and spray on affected plants. Apply in early morning or evening.',
-                    'safety_precautions': 'Wear protective clothing, gloves, and mask. Keep away from children and pets. Do not apply near water sources.',
-                    'cost_estimate': 45.00,
-                    'duration_days': 14,
-                    'regional_availability': 'Available in most agricultural stores'
-                },
-                {
-                    'name': 'Mancozeb 75% WP',
-                    'description': 'Contact fungicide effective against various fungal diseases. Provides protective and curative action against blight and mildew. (Reference: TNAU Crop Protection Guidelines)',
-                    'treatment_type': 'chemical',
-                    'effectiveness_rating': 5,
-                    'application_method': 'Mix 2-3 grams per liter of water. Spray thoroughly on both sides of leaves. Repeat every 10-14 days.',
-                    'safety_precautions': 'Use protective gear. Avoid inhalation. Wash hands after use. Do not mix with alkaline substances.',
-                    'cost_estimate': 35.00,
-                    'duration_days': 10,
-                    'regional_availability': 'Widely available in agricultural supply stores'
+            disease_image = disease_image_map.get(result, 'Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot.jpeg')
+
+            response_data = {
+                'result': result,
+                'treatments': treatments_data,
+                'preventions': prevention_data,
+                'disease_info': {
+                    'name': result,
+                    'has_treatments': len(treatments_data) > 0,
+                    'has_preventions': len(prevention_data) > 0,
+                    'image_path': f'/static/images/crops/{disease_image}'
                 }
-            ])
-
-        # Add disease-specific prevention data if none exists
-        if not prevention_data:
-            # Create disease-specific prevention strategies
-            disease_preventions = {
-                'Cercospora Leaf Spot': [
-                    {
-                        'title': 'Resistant Corn Hybrids',
-                        'description': 'Plant Cercospora leaf spot resistant corn hybrids to prevent disease development.',
-                        'strategy_type': 'cultural',
-                        'implementation_steps': ['Select resistant varieties from certified seed suppliers', 'Check disease resistance ratings before planting', 'Maintain records of resistant varieties performance'],
-                        'expected_benefits': 'Reduces disease incidence by 70-90%',
-                        'difficulty_level': 'easy',
-                        'cost_impact': 'low'
-                    },
-                    {
-                        'title': 'Tillage Management',
-                        'description': 'Proper tillage practices to bury infected crop residues and reduce disease inoculum.',
-                        'strategy_type': 'cultural',
-                        'implementation_steps': ['Deep plow infected fields after harvest', 'Avoid minimum tillage in disease-prone areas', 'Remove and destroy infected plant debris'],
-                        'expected_benefits': 'Reduces overwintering inoculum by 50-70%',
-                        'difficulty_level': 'moderate',
-                        'cost_impact': 'medium'
-                    }
-                ],
-                'Corn Common rust': [
-                    {
-                        'title': 'Rust-Resistant Varieties',
-                        'description': 'Select corn varieties with genetic resistance to common rust.',
-                        'strategy_type': 'cultural',
-                        'implementation_steps': ['Choose varieties with Rp resistance genes', 'Consult local extension services for resistant varieties', 'Rotate resistance genes annually'],
-                        'expected_benefits': 'Provides 80-95% disease control',
-                        'difficulty_level': 'easy',
-                        'cost_impact': 'low'
-                    },
-                    {
-                        'title': 'Field Sanitation',
-                        'description': 'Remove alternate hosts and volunteer corn plants that can harbor rust spores.',
-                        'strategy_type': 'cultural',
-                        'implementation_steps': ['Remove Oxalis plants around fields', 'Control volunteer corn in off-season', 'Clean equipment between fields'],
-                        'expected_benefits': 'Reduces initial inoculum by 60-80%',
-                        'difficulty_level': 'moderate',
-                        'cost_impact': 'low'
-                    }
-                ],
-                'Corn Northern Leaf Blight': [
-                    {
-                        'title': 'Disease-Resistant Hybrids',
-                        'description': 'Plant hybrids with Ht resistance genes for Northern Leaf Blight control.',
-                        'strategy_type': 'cultural',
-                        'implementation_steps': ['Select hybrids with multiple Ht genes', 'Use disease resistance ratings for variety selection', 'Test varieties in small plots first'],
-                        'expected_benefits': 'Reduces disease severity by 70-90%',
-                        'difficulty_level': 'easy',
-                        'cost_impact': 'low'
-                    },
-                    {
-                        'title': 'Residue Management',
-                        'description': 'Proper management of corn residues to reduce disease carryover.',
-                        'strategy_type': 'cultural',
-                        'implementation_steps': ['Plow under residues after harvest', 'Avoid surface residue in no-till systems', 'Use residue-degrading products if needed'],
-                        'expected_benefits': 'Reduces overwintering inoculum by 50-75%',
-                        'difficulty_level': 'moderate',
-                        'cost_impact': 'medium'
-                    }
-                ],
-                'Early Blight in Potatoes': [
-                    {
-                        'title': 'Resistant Potato Varieties',
-                        'description': 'Plant early blight resistant potato varieties to minimize disease development.',
-                        'strategy_type': 'cultural',
-                        'implementation_steps': ['Select varieties with resistance genes', 'Use certified disease-free seed potatoes', 'Test varieties in local conditions'],
-                        'expected_benefits': 'Reduces disease incidence by 60-85%',
-                        'difficulty_level': 'easy',
-                        'cost_impact': 'low'
-                    },
-                    {
-                        'title': 'Irrigation Management',
-                        'description': 'Avoid overhead irrigation to reduce leaf wetness duration.',
-                        'strategy_type': 'cultural',
-                        'implementation_steps': ['Use drip irrigation systems', 'Water early in the day to allow leaf drying', 'Avoid evening watering'],
-                        'expected_benefits': 'Reduces disease development by 40-60%',
-                        'difficulty_level': 'moderate',
-                        'cost_impact': 'medium'
-                    }
-                ],
-                'Late Blight in Potatoes': [
-                    {
-                        'title': 'Late Blight Resistant Varieties',
-                        'description': 'Use potato varieties with R-genes for late blight resistance.',
-                        'strategy_type': 'cultural',
-                        'implementation_steps': ['Select varieties with multiple R-genes', 'Use certified seed potatoes', 'Monitor for new resistant varieties'],
-                        'expected_benefits': 'Provides 70-95% disease control',
-                        'difficulty_level': 'easy',
-                        'cost_impact': 'low'
-                    },
-                    {
-                        'title': 'Field Isolation',
-                        'description': 'Isolate potato fields from tomato crops to prevent disease spread.',
-                        'strategy_type': 'cultural',
-                        'implementation_steps': ['Maintain 500m distance from tomato fields', 'Use physical barriers if needed', 'Monitor neighboring fields for disease'],
-                        'expected_benefits': 'Reduces disease introduction by 80-90%',
-                        'difficulty_level': 'easy',
-                        'cost_impact': 'none'
-                    }
-                ],
-                'Bacterial Spot in Tomatoes': [
-                    {
-                        'title': 'Disease-Free Transplants',
-                        'description': 'Start with certified disease-free tomato transplants.',
-                        'strategy_type': 'cultural',
-                        'implementation_steps': ['Purchase transplants from reputable sources', 'Inspect transplants before planting', 'Avoid saving seeds from infected plants'],
-                        'expected_benefits': 'Prevents disease introduction by 90%',
-                        'difficulty_level': 'easy',
-                        'cost_impact': 'low'
-                    },
-                    {
-                        'title': 'Copper Sprays',
-                        'description': 'Apply copper-based bactericides preventively.',
-                        'strategy_type': 'chemical',
-                        'implementation_steps': ['Apply copper sprays every 7-10 days', 'Start applications preventively', 'Use fixed copper formulations'],
-                        'expected_benefits': 'Reduces bacterial spot by 50-70%',
-                        'difficulty_level': 'moderate',
-                        'cost_impact': 'medium'
-                    }
-                ],
-                'Tomato Early blight': [
-                    {
-                        'title': 'Mulching',
-                        'description': 'Use organic mulches to prevent soil splash onto lower leaves.',
-                        'strategy_type': 'cultural',
-                        'implementation_steps': ['Apply 5-7 cm organic mulch around plants', 'Keep mulch away from stems', 'Replenish mulch as needed'],
-                        'expected_benefits': 'Reduces disease incidence by 40-60%',
-                        'difficulty_level': 'easy',
-                        'cost_impact': 'medium'
-                    },
-                    {
-                        'title': 'Stake and Prune',
-                        'description': 'Proper staking and pruning to improve air circulation.',
-                        'strategy_type': 'cultural',
-                        'implementation_steps': ['Use stakes or cages for support', 'Remove lower leaves touching soil', 'Prune for better airflow'],
-                        'expected_benefits': 'Reduces humidity and disease by 50-70%',
-                        'difficulty_level': 'moderate',
-                        'cost_impact': 'low'
-                    }
-                ],
-                'Tomato Late blight': [
-                    {
-                        'title': 'Late Blight Resistant Varieties',
-                        'description': 'Plant tomato varieties with Ph-genes for late blight resistance.',
-                        'strategy_type': 'cultural',
-                        'implementation_steps': ['Select varieties with Ph-2 or Ph-3 genes', 'Use resistant rootstocks for grafting', 'Monitor for new resistant varieties'],
-                        'expected_benefits': 'Provides 70-90% disease control',
-                        'difficulty_level': 'easy',
-                        'cost_impact': 'low'
-                    },
-                    {
-                        'title': 'Greenhouse Production',
-                        'description': 'Grow tomatoes in protected environments to avoid disease pressure.',
-                        'strategy_type': 'cultural',
-                        'implementation_steps': ['Use climate-controlled greenhouses', 'Implement strict sanitation protocols', 'Use UV-treated irrigation water'],
-                        'expected_benefits': 'Reduces disease incidence by 80-95%',
-                        'difficulty_level': 'difficult',
-                        'cost_impact': 'high'
-                    }
-                ]
             }
 
-            # Get disease-specific preventions or use general preventions
-            prevention_data = disease_preventions.get(result, [
-                {
-                    'title': 'Crop Rotation',
-                    'description': 'Rotate crops to different families to break disease cycles and reduce pest buildup in soil.',
-                    'strategy_type': 'cultural',
-                    'implementation_steps': ['Plan crop rotation schedule', 'Avoid planting same crop family in same area for 2-3 years', 'Use cover crops during off-season'],
-                    'expected_benefits': 'Reduces soil-borne diseases and pest populations by 60-80%',
-                    'difficulty_level': 'moderate',
-                    'cost_impact': 'low'
-                },
-                {
-                    'title': 'Proper Plant Spacing',
-                    'description': 'Maintain adequate spacing between plants to improve air circulation and reduce humidity.',
-                    'strategy_type': 'cultural',
-                    'implementation_steps': ['Follow recommended spacing guidelines', 'Avoid overcrowding', 'Prune excess foliage for better airflow'],
-                    'expected_benefits': 'Reduces fungal diseases by improving air circulation',
-                    'difficulty_level': 'easy',
-                    'cost_impact': 'none'
-                }
-            ])
+            response = Response(response_data)
+            response['Access-Control-Allow-Origin'] = 'https://brilliant-flan-b6a0dd.netlify.app'
+            response['Access-Control-Allow-Credentials'] = 'true'
+            return response
 
-        # Create disease-to-image mapping
-        disease_image_map = {
-            'Cercospora Leaf Spot': 'Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot.jpeg',
-            'Corn Common rust': 'Corn_(maize)___Common_rust.jpeg',
-            'Corn Northern Leaf Blight': 'Corn_(maize)___Northern_Leaf_Blight.jpeg',
-            'Corn healthy': 'Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot.jpeg',  # Use corn image as default for healthy corn
-            'Early Blight in Potatoes': 'Potato___Early_blight.jpeg',
-            'Late Blight in Potatoes': 'Potato___Late_blight.jpeg',
-            'Potato healthy': 'Potato___Early_blight.jpeg',  # Use potato image as default for healthy potato
-            'Bacterial Spot in Tomatoes': 'Tomato___Bacterial_spot.jpeg',
-            'Tomato Early blight': 'Tomato___Early_blight.jpeg',
-            'Tomato Late blight': 'Tomato___late_blight.jpeg',
-            'Tomato Leaf Mold': 'Tomato___Leaf_Mold.jpeg',
-            'Tomato Septoria leaf spot': 'Tomato___Septoria_leaf_spot.jpeg',
-            'Tomato Target Spot': 'Tomato___Target_Spot.jpeg',
-            'Tomato mosaic virus': 'Tomato___Tomato_mosaic_virus.jpeg',
-            'Tomato Yellow Leaf Curl Virus': 'Tomato___Tomato_Yellow_Leaf_Curl_Virus.jpeg',
-            'Tomato Spider mites two spotted spider mite': 'Tomato_Spider_mites_two_ spotted_spider_mite.jpeg',
-            'Tomato healthy': 'Tomato___Bacterial_spot.jpeg'  # Use tomato image as default for healthy tomato
-        }
-
-        # Get the appropriate image for the disease
-        disease_image = disease_image_map.get(result, 'Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot.jpeg')
-
-        response_data = {
-            'result': result,
-            'treatments': treatments_data,
-            'preventions': prevention_data,
-            'disease_info': {
-                'name': result,
-                'has_treatments': len(treatments_data) > 0,
-                'has_preventions': len(prevention_data) > 0,
-                'image_path': f'/static/images/crops/{disease_image}'
-            }
-        }
-
-        return Response(response_data)
-
-        return Response({'error': 'No image provided'}, status=400)
+        except Exception as e:
+            print(f"PredictView error: {str(e)}")
+            response = Response({'error': f'Prediction failed: {str(e)}'}, status=500)
+            response['Access-Control-Allow-Origin'] = 'https://brilliant-flan-b6a0dd.netlify.app'
+            response['Access-Control-Allow-Credentials'] = 'true'
+            return response
 
 @api_view(['POST'])
 def translate_text(request):

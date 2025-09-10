@@ -54,8 +54,22 @@ import torch
 from django.conf import settings
 
 # Load models once when views.py is imported
-tf_model = load_model(settings.TF_MODEL_FILE)
-pt_model = torch.load(settings.PT_MODEL_FILE, map_location="cpu")
+tf_model = None
+pt_model = None
+
+try:
+    tf_model = load_model(settings.TF_MODEL_FILE)
+    print("TensorFlow model loaded successfully")
+except Exception as e:
+    print(f"Warning: Could not load TensorFlow model: {e}")
+    tf_model = None
+
+try:
+    pt_model = torch.load(settings.PT_MODEL_FILE, map_location="cpu")
+    print("PyTorch model loaded successfully")
+except Exception as e:
+    print(f"Warning: Could not load PyTorch model: {e}")
+    pt_model = None
 
 # Example view
 from rest_framework.response import Response

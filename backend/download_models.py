@@ -53,6 +53,30 @@ class ModelDownloader:
             response = requests.get(url, stream=True, timeout=300)
             response.raise_for_status()
 
+            # Check if we got a virus scan warning page
+            content = response.content
+            if b'Virus scan warning' in content:
+                print("Detected virus scan warning page. Extracting confirmation token...")
+
+                # Parse the HTML to get the confirmation token
+                import re
+                confirm_match = re.search(r'name="confirm" value="([^"]+)"', content.decode('utf-8'))
+                uuid_match = re.search(r'name="uuid" value="([^"]+)"', content.decode('utf-8'))
+
+                if confirm_match and uuid_match:
+                    confirm_token = confirm_match.group(1)
+                    uuid_token = uuid_match.group(1)
+
+                    # Make the confirmed download request
+                    confirm_url = f"https://drive.usercontent.google.com/download?id={file_id}&export=download&confirm={confirm_token}&uuid={uuid_token}"
+                    print("Making confirmed download request...")
+
+                    response = requests.get(confirm_url, stream=True, timeout=300)
+                    response.raise_for_status()
+                else:
+                    print("Could not extract confirmation tokens from virus scan page")
+                    return False
+
             filepath = self.models_dir / filename
             with open(filepath, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):

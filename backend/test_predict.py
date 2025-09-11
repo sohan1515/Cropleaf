@@ -7,26 +7,51 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CropLeaf.settings')
 django.setup()
 
-from app.utils import process_image
-from django.core.files.storage import default_storage
+from django.http import JsonResponse, HttpRequest
+from django.core.files.uploadedfile import SimpleUploadedFile
+from app.views import predict_simple
 
-def test_process_image():
+def test_predict_function():
+    """Test the predict function directly"""
     try:
-        # Test with the existing test image
-        test_image_path = 'test_image.jpg'
-        if default_storage.exists(test_image_path):
-            full_path = default_storage.path(test_image_path)
-            print(f"Testing with image: {full_path}")
-            result, max_probability, temp_files = process_image(full_path)
-            print(f"Result: {result}")
-            print(f"Max probability: {max_probability}")
-            print(f"Temp files: {temp_files}")
-        else:
-            print("Test image not found")
+        # Create a mock request
+        request = HttpRequest()
+        request.method = 'POST'
+
+        # Create a simple test image
+        from PIL import Image
+        import io
+
+        # Create a simple 100x100 gray image
+        img = Image.new('RGB', (100, 100), color=(128, 128, 128))
+        img_buffer = io.BytesIO()
+        img.save(img_buffer, format='JPEG')
+        img_buffer.seek(0)
+
+        # Create a SimpleUploadedFile
+        test_image = SimpleUploadedFile(
+            "test_image.jpg",
+            img_buffer.getvalue(),
+            content_type="image/jpeg"
+        )
+
+        # Add the file to the request
+        request.FILES['image'] = test_image
+
+        print("Testing predict function with mock request...")
+
+        # Call the predict function
+        response = predict_simple(request)
+
+        print("Response status:", response.status_code)
+        print("Response content:", response.content.decode('utf-8'))
+
+        return response
+
     except Exception as e:
         print(f"Error: {str(e)}")
         import traceback
         traceback.print_exc()
 
 if __name__ == '__main__':
-    test_process_image()
+    test_predict_function()

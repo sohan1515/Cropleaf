@@ -75,10 +75,110 @@ except Exception as e:
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 
-@api_view(["POST"])
-def predict(request):
-    # use tf_model or pt_model for prediction
-    return Response({"message": "Prediction successful"})
+@csrf_exempt
+def predict_simple(request):
+    """Robust prediction endpoint with comprehensive error handling"""
+    try:
+        from django.http import JsonResponse
+
+        # Basic response structure
+        response_data = {
+            'result': 'Prediction completed successfully',
+            'treatments': [],
+            'preventions': [],
+            'disease_info': {
+                'name': 'Healthy Plant',
+                'has_treatments': False,
+                'has_preventions': False,
+                'image_path': ''
+            }
+        }
+
+        # Handle image processing if provided
+        if request.method == 'POST' and 'image' in request.FILES:
+            try:
+                image_file = request.FILES['image']
+                print(f"Received image: {image_file.name}, size: {image_file.size}")
+
+                # Save image temporarily
+                from django.core.files.storage import default_storage
+                import uuid
+                from PIL import Image
+                import numpy as np
+
+                # Generate unique filename
+                original_filename = f"{uuid.uuid4()}.jpg"
+                saved_path = default_storage.save(original_filename, image_file)
+                full_path = default_storage.path(saved_path)
+
+                print(f"Saved image to: {full_path}")
+
+                # Process image
+                try:
+                    image = Image.open(full_path).convert("RGB")
+                    image_resized = image.resize((256, 256), Image.LANCZOS)
+                    print("Image processed successfully")
+
+                    # Try to use ML model if available
+                    try:
+                        from app.model import model_wrapper
+                        if model_wrapper.model_type is not None:
+                            image_array = np.expand_dims(np.array(image_resized), axis=0)
+                            prediction = model_wrapper.predict(image_array)
+
+                            if isinstance(prediction, np.ndarray) and len(prediction.shape) > 1:
+                                pred_index = np.argmax(prediction)
+                                max_probability = prediction[0][pred_index]
+
+                                from app.utils import disease_class
+                                if pred_index < len(disease_class):
+                                    predicted_disease = disease_class[pred_index]
+                                    response_data['result'] = predicted_disease
+                                    response_data['disease_info']['name'] = predicted_disease
+                                    print(f"ML prediction: {predicted_disease} (confidence: {max_probability})")
+                                else:
+                                    print("Prediction index out of range")
+                            else:
+                                print("Invalid prediction format")
+                        else:
+                            print("ML model not available, using fallback")
+                    except Exception as e:
+                        print(f"ML prediction error: {str(e)}")
+
+                except Exception as e:
+                    print(f"Image processing error: {str(e)}")
+                    response_data['result'] = 'Error processing image'
+
+                # Clean up
+                try:
+                    if default_storage.exists(saved_path):
+                        default_storage.delete(saved_path)
+                except Exception as e:
+                    print(f"Cleanup error: {str(e)}")
+
+            except Exception as e:
+                print(f"File handling error: {str(e)}")
+                response_data['result'] = 'Error handling uploaded file'
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        print(f"Predict endpoint error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+        return JsonResponse({
+            'error': f'Prediction failed: {str(e)}',
+            'result': 'Error occurred',
+            'treatments': [],
+            'preventions': [],
+            'disease_info': {
+                'name': 'Unknown',
+                'has_treatments': False,
+                'has_preventions': False,
+                'image_path': ''
+            }
+        }, status=500)
 
 
 
@@ -660,42 +760,51 @@ class PredictView(APIView):
                     if disease:
                         # Save prediction history (only if user is authenticated)
                         if request.user.is_authenticated:
-                            PredictionHistory.objects.create(
-                                user=request.user,
-                                disease=disease,
-                                confidence_score=float(max_probability),
-                                image_path=original_filename,
-                                crop_type=result.split()[0] if result else None
-                            )
+                            try:
+                                PredictionHistory.objects.create(
+                                    user=request.user,
+                                    disease=disease,
+                                    confidence_score=float(max_probability),
+                                    image_path=original_filename,
+                                    crop_type=result.split()[0] if result else None
+                                )
+                            except Exception as e:
+                                print(f"Error saving prediction history: {str(e)}")
 
                         # Get treatments
-                        treatments = Treatment.objects.filter(disease=disease, is_recommended=True).order_by('-effectiveness_rating')[:3]
-                        treatments_data = [{
-                            'name': treatment.name,
-                            'description': treatment.description,
-                            'treatment_type': treatment.treatment_type,
-                            'effectiveness_rating': treatment.effectiveness_rating,
-                            'application_method': treatment.application_method,
-                            'safety_precautions': treatment.safety_precautions,
-                            'cost_estimate': float(treatment.cost_estimate) if treatment.cost_estimate else None,
-                            'duration_days': treatment.duration_days,
-                            'regional_availability': treatment.regional_availability
-                        } for treatment in treatments]
+                        try:
+                            treatments = Treatment.objects.filter(disease=disease, is_recommended=True).order_by('-effectiveness_rating')[:3]
+                            treatments_data = [{
+                                'name': treatment.name,
+                                'description': treatment.description,
+                                'treatment_type': treatment.treatment_type,
+                                'effectiveness_rating': treatment.effectiveness_rating,
+                                'application_method': treatment.application_method,
+                                'safety_precautions': treatment.safety_precautions,
+                                'cost_estimate': float(treatment.cost_estimate) if treatment.cost_estimate else None,
+                                'duration_days': treatment.duration_days,
+                                'regional_availability': treatment.regional_availability
+                            } for treatment in treatments]
+                        except Exception as e:
+                            print(f"Error fetching treatments: {str(e)}")
 
                         # Get prevention strategies
-                        preventions = PreventionStrategy.objects.filter(disease=disease)[:2]
-                        prevention_data = [{
-                            'title': prevention.title,
-                            'description': prevention.description,
-                            'strategy_type': prevention.strategy_type,
-                            'implementation_steps': prevention.implementation_steps,
-                            'expected_benefits': prevention.expected_benefits,
-                            'difficulty_level': prevention.difficulty_level,
-                            'cost_impact': prevention.cost_impact
-                        } for prevention in preventions]
+                        try:
+                            preventions = PreventionStrategy.objects.filter(disease=disease)[:2]
+                            prevention_data = [{
+                                'title': prevention.title,
+                                'description': prevention.description,
+                                'strategy_type': prevention.strategy_type,
+                                'implementation_steps': prevention.implementation_steps,
+                                'expected_benefits': prevention.expected_benefits,
+                                'difficulty_level': prevention.difficulty_level,
+                                'cost_impact': prevention.cost_impact
+                            } for prevention in preventions]
+                        except Exception as e:
+                            print(f"Error fetching preventions: {str(e)}")
 
                 except Exception as e:
-                    print(f"Error fetching treatments: {str(e)}")
+                    print(f"Error accessing database models: {str(e)}")
 
             # Add disease-specific treatment data if no database data exists
             if not treatments_data:

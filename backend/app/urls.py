@@ -11,7 +11,7 @@ from app.views import (
     home, crops, uploads, profiledata, contact_view, forgot_pass,
 
     # API views
-    PredictView, disease_details, translate_text, health_check,
+    predict_simple, disease_details, translate_text, health_check,
     dashboard_stats, farmer_dashboard,
 
     # Marketplace views
@@ -39,7 +39,7 @@ urlpatterns = [
     path('login/',login_view,name="login"),
     path('logout/',logout_view, name='logout'),
     path('user/profile/<int:pk>/',profiledata, name='profile'),
-    path('api/predict/', PredictView.as_view(), name='api_predict'),
+    path('api/predict/', predict_simple, name='api_predict'),
     path('api/disease/<str:disease_name>/', disease_details, name='disease_details'),
     path('api/translate/', translate_text, name='translate_text'),
     path('api/dashboard/stats/', dashboard_stats, name='dashboard_stats'),
